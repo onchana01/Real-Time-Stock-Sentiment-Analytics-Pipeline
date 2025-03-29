@@ -1,0 +1,59 @@
+# logging.yaml
+# Configuration for Python's logging system used across the Stock Sentiment Analyzer project.
+# Provides structured logging with console and file handlers, suitable for development, testing,
+# and production environments in a cloud-based microservices architecture.
+
+version: 1
+disable_existing_loggers: false
+
+# Define log formatters
+formatters:
+  detailed:
+    # Detailed format including timestamp, level, module, and message
+    format: "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+  simple:
+    # Simple format for console output during development
+    format: "[%(levelname)s] %(message)s"
+
+# Define log handlers
+handlers:
+  console:
+    # Outputs logs to the console (stdout)
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+    stream: ext://sys.stdout
+  file:
+    # Rotates log files daily, keeping 7 days of history
+    class: logging.handlers.TimedRotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/stock_sentiment_analyzer.log
+    when: midnight
+    interval: 1
+    backupCount: 7
+    encoding: utf8
+
+# Define loggers
+loggers:
+  # Logger for the API module
+  api:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: false
+  # Logger for the ingestion module
+  ingestion:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: false
+  # Logger for the processing module
+  processing:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: false
+
+# Root logger configuration
+root:
+  level: INFO
+  handlers: [console, file]

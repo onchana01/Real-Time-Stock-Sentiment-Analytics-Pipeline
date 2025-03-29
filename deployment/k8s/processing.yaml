@@ -1,0 +1,169 @@
+# processing.yaml
+# Kubernetes deployment for the processing service.
+# Deploys the processing container to transform raw data and store it in BigQuery.
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentiment-processing
+  namespace: stock-sentiment
+  labels:
+    app: sentiment-processing
+spec:
+  replicas: 2  # Run 2 replicas for parallel processing
+  selector:
+    matchLabels:
+      app: sentiment-processing
+  template:
+    metadata:
+      labels:
+        app: sentiment-processing
+      annotations:
+        sidecar.istio.io/inject: "true"  # Enable Istio sidecar
+    spec:
+      containers:
+      - name: sentiment-processing
+        image: gcr.io/stock-sentiment-analyzer/stock-sentiment-processing:latest  # Replace with your GCP project
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GCP_PROJECT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: sentiment-config
+              key: gcp_project_id
+        - name: BQ_DATASET
+          valueFrom:
+            configMapKeyRef:
+              name: sentiment-config
+              key: bq_dataset
+        - name: SENTIMENT_TABLE
+          valueFrom:
+            configMapKeyRef:
+              name: sentiment-config
+              key: sentiment_table
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"  # 0.2 CPU
+          limits:
+            memory: "512Mi"
+            cpu: "500m"  # 0.5 CPU
+        readinessProbe:
+          exec:
+            command: ["python", "-c", "import sys; sys.exit(0 if 'pipeline' in dir() else 1)"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["python", "-c", "import sys; sys.exit(0 if 'pipeline' in dir() else 1)"]
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+# deployment/k8s/prometheus.yaml
+# Deploys Prometheus to scrape metrics from services in GKE.
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: stock-sentiment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/prometheus
+        ports:
+        - containerPort: 9090
+          name: http
+        resources:
+          requests:
+            memory: "400Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: prometheus-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: stock-sentiment
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: stock-sentiment
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+    - job_name: 'sentiment-api'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: sentiment-api
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+):(?:\d+);(\d+)
+        replacement: $1:8000
+        target_label: __address__
+    - job_name: 'sentiment-ingestion'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: sentiment-ingestion
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+):(?:\d+);(\d+)
+        replacement: $1:8000
+        target_label: __address__
+    - job_name: 'sentiment-processing'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: sentiment-processing
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+):(?:\d+);(\d+)
+        replacement: $1:8000
+        target_label: __address__

@@ -1,0 +1,61 @@
+# ingestion.yaml
+# Kubernetes deployment for the ingestion service.
+# Deploys the ingestion container to fetch data from the X API and store it in GCS.
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentiment-ingestion
+  namespace: stock-sentiment
+  labels:
+    app: sentiment-ingestion
+spec:
+  replicas: 2  # Run 2 replicas for load balancing
+  selector:
+    matchLabels:
+      app: sentiment-ingestion
+  template:
+    metadata:
+      labels:
+        app: sentiment-ingestion
+      annotations:
+        sidecar.istio.io/inject: "true"  # Enable Istio sidecar
+    spec:
+      containers:
+      - name: sentiment-ingestion
+        image: gcr.io/stock-sentiment-analyzer/stock-sentiment-ingestion:latest  # Replace with your GCP project
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GCP_PROJECT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: sentiment-config
+              key: gcp_project_id
+        - name: X_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sentiment-secrets
+              key: x_api_key
+        - name: X_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: sentiment-secrets
+              key: x_api_secret
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"  # 0.1 CPU
+          limits:
+            memory: "256Mi"
+            cpu: "300m"  # 0.3 CPU
+        readinessProbe:
+          exec:
+            command: ["python", "-c", "import sys; sys.exit(0 if 'fetcher' in dir() else 1)"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["python", "-c", "import sys; sys.exit(0 if 'fetcher' in dir() else 1)"]
+          initialDelaySeconds: 15
+          periodSeconds: 20

@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentiment-api
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: sentiment
+  template:
+    metadata:
+      labels:
+        app: sentiment
+    spec:
+      containers:
+      - name: sentiment
+        image: gcr.io/fresh-rain-454919-b2/stock-sentiment:v6  
+        ports:
+        - containerPort: 50051
+        env:
+        - name: GCP_PROJECT_ID
+          value: "fresh-rain-454919-b2"
+        - name: BQ_DATASET
+          value: "sentiment"
+        - name: SENTIMENT_TABLE
+          value: "scores"
+        envFrom:
+        - secretRef:
+            name: sentiment-api-secrets

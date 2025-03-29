@@ -1,0 +1,49 @@
+# pyproject.toml
+# Poetry configuration file for managing dependencies and project metadata
+# for the Stock Sentiment Analyzer project.
+
+[tool.poetry]
+name = "Stock-Sentiment-analyzer"
+version = "0.1.0"
+description = "A real-time stock sentiment analysis pipeline using alternative data from X, processed with GCP."
+authors = ["Abner <abnerogega01@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+grpcio = "^1.71.0"
+grpcio-tools = "^1.71.0"
+google-cloud-storage = "^2.19.0"
+google-cloud-bigquery = "^3.31.0"
+tweepy = "^4.15.0"
+textblob = "^0.18.0.post0"
+pytest = "^8.3.5"
+pytest-cov = "^5.0.0"
+locust = "^2.33.2"
+prometheus-client = "^0.20.0"
+pandas = "^2.2.3"
+grpcio-reflection = "^1.71.0"
+python-decouple = "^3.8"
+influxdb-client = "^1.48.0"
+
+[tool.poetry.dev-dependencies]
+black = "^24.10.0"
+flake8 = "^7.1.2"
+mypy = "^1.15.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-v --cov=./ --cov-report=xml"
+testpaths = ["api/tests", "ingestion/tests", "processing/tests", "tests"]

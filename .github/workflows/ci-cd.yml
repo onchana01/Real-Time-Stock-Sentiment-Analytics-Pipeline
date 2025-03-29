@@ -1,0 +1,105 @@
+# ci-cd.yml
+# GitHub Actions workflow for CI/CD of the Stock Sentiment Analyzer project.
+# Builds, tests, and deploys Docker images to Google Container Registry (GCR),
+# then deploys to Google Kubernetes Engine (GKE).
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: sentiment-cluster
+  GKE_ZONE: us-central1-a
+  IMAGE_PREFIX: gcr.io/${{ secrets.GCP_PROJECT_ID }}/stock-sentiment
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # Checkout code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Install dependencies
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --no-dev
+
+      # Compile .proto files
+      - name: Compile Protos
+        run: ./scripts/build_protos.sh
+
+      # Run unit tests
+      - name: Run Unit Tests
+        run: |
+          poetry run pytest api/tests/ ingestion/tests/ processing/tests/ -v --cov=./ --cov-report=xml
+
+      # Upload coverage report
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+
+      # Authenticate with Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Set up Google Cloud SDK
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      # Build and push Docker images
+      - name: Build and Push Docker Images
+        run: |
+          docker build -t ${{ env.IMAGE_PREFIX }}-api:latest -f deployment/docker/api/Dockerfile .
+          docker build -t ${{ env.IMAGE_PREFIX }}-ingestion:latest -f deployment/docker/ingestion/Dockerfile .
+          docker build -t ${{ env.IMAGE_PREFIX }}-processing:latest -f deployment/docker/processing/Dockerfile .
+          docker push ${{ env.IMAGE_PREFIX }}-api:latest
+          docker push ${{ env.IMAGE_PREFIX }}-ingestion:latest
+          docker push ${{ env.IMAGE_PREFIX }}-processing:latest
+
+      # Deploy to GKE (only on main branch push)
+      - name: Deploy Monitoring to GKE
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} --zone ${{ env.GKE_ZONE }} --project ${{ env.PROJECT_ID }}
+          kubectl apply -f deployment/k8s/api.yaml
+          kubectl apply -f deployment/k8s/ingestion.yaml
+          kubectl apply -f deployment/k8s/processing.yaml
+          kubectl apply -f deployment/istio/virtual-service.yaml
+          kubectl rollout status deployment/sentiment-api -n stock-sentiment
+          kubectl rollout status deployment/sentiment-ingestion -n stock-sentiment
+          kubectl rollout status deployment/sentiment-processing -n stock-sentiment
+          kubectl rollout status deployment/prometheus -n stock-sentiment
+          kubectl rollout status deployment/grafana -n stock-sentiment
+          kubectl apply -f deployment/k8s/prometheus.yaml
+          kubectl apply -f deployment/k8s/grafana.yaml
+
+    # Environment variables for secrets
+    environment:
+      name: production
+      url: ${{ secrets.GKE_CLUSTER_URL }}

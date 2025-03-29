@@ -1,0 +1,26 @@
+# virtual-service.yaml
+# Istio VirtualService configuration for routing traffic to the SentimentService API.
+# Provides traffic management and observability within the Istio service mesh.
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: sentiment-api-virtual-service
+  namespace: stock-sentiment
+spec:
+  hosts:
+  - "sentiment-api-service.stock-sentiment.svc.cluster.local"  # Internal service hostname
+  gateways:
+  - sentiment-gateway  # Assumes an Istio Gateway is defined
+  http:
+  - route:
+    - destination:
+        host: sentiment-api-service
+        port:
+          number: 50051
+      weight: 100
+    retries:
+      attempts: 3  # Retry failed requests up to 3 times
+      perTryTimeout: 2s
+      retryOn: "5xx,gateway-error,reset,connect-failure"
+    timeout: 10s  # Overall request timeout

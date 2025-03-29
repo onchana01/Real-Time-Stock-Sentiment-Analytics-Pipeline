@@ -1,0 +1,40 @@
+{
+    "dashboard": {
+      "id": null,
+      "title": "Stock Sentiment Monitoring",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Sentiment Score Over Time (AAPL)",
+          "type": "graph",
+          "datasource": "BigQuery",
+          "targets": [
+            {
+              "query": "SELECT timestamp, sentiment_score FROM `sentiment_dataset.sentiment_data` WHERE ticker = 'AAPL' ORDER BY timestamp",
+              "format": "time_series"
+            }
+          ],
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "xaxis": { "mode": "time" },
+          "yaxis": { "label": "Sentiment Score (-1 to 1)" }
+        },
+        {
+          "id": 2,
+          "title": "API Request Rate",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(sentiment_requests_total[5m])",
+              "legendFormat": "{{method}}"
+            }
+          ],
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+        }
+      ],
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      }
+    }
+  }

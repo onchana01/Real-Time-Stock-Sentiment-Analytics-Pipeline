@@ -1,0 +1,47 @@
+# .gitignore
+# Specifies files and directories to exclude from Git version control.
+# Protects sensitive data and ignores temporary/generated files.
+
+# Python-specific ignores
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Local development and testing
+*.log
+logs/
+*.pytest_cache/
+coverage.xml
+htmlcov/
+test-reports/
+
+# Environment and secrets
+.env
+*.env
+secrets/
+credentials.json
+
+# Docker-specific ignores
+*.dockerignore
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Generated proto files (optional, if regenerated frequently)
+api/src/*_pb2.py
+api/src/*_pb2_grpc.py
+
+# Miscellaneous
+*.bak
+*.tmp

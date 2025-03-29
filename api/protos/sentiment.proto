@@ -1,0 +1,54 @@
+// api/protos/sentiment.proto
+syntax = "proto3";
+
+package sentiment;
+
+import "google/protobuf/timestamp.proto";
+
+// SentimentService defines the gRPC service for stock sentiment analysis.
+service SentimentService {
+  // GetStockSentiment returns the current sentiment for a stock.
+  rpc GetStockSentiment (StockSentimentRequest) returns (SentimentResponse) {}
+
+  // StreamStockSentiment streams historical sentiment data for a stock.
+  rpc StreamStockSentiment (StockSentimentStreamRequest) returns (stream SentimentResponse) {}
+}
+
+// Timeframe enum for sentiment aggregation periods.
+enum Timeframe {
+  TIMEFRAME_UNSPECIFIED = 0;
+  TIMEFRAME_1H = 1;  // 1 hour
+  TIMEFRAME_1D = 2;  // 1 day
+  TIMEFRAME_1W = 3;  // 1 week
+}
+
+// Interval enum for streaming intervals.
+enum Interval {
+  INTERVAL_UNSPECIFIED = 0;
+  INTERVAL_1M = 1;  // 1 minute
+  INTERVAL_1H = 2;  // 1 hour
+  INTERVAL_1D = 3;  // 1 day
+}
+
+// StockSentimentRequest is used for unary requests to get current sentiment.
+message StockSentimentRequest {
+  string ticker = 1;         // Stock ticker (e.g., "TSLA")
+  Timeframe timeframe = 2;   // Timeframe for aggregation (e.g., TIMEFRAME_1H)
+}
+
+// StockSentimentStreamRequest is used for streaming historical sentiment.
+message StockSentimentStreamRequest {
+  string ticker = 1;         // Stock ticker (e.g., "TSLA")
+  google.protobuf.Timestamp start_time = 2;  // Start time
+  google.protobuf.Timestamp end_time = 3;    // End time
+  Interval interval = 4;     // Interval for streaming (e.g., INTERVAL_1H)
+}
+
+// SentimentResponse contains sentiment data for a stock.
+message SentimentResponse {
+  string ticker = 1;         // Stock ticker
+  float sentiment_score = 2; // Sentiment score (-1.0 to 1.0)
+  string timestamp = 3;      // ISO timestamp (e.g., "2022-09-29 23:41:16+00:00")
+  int32 data_point_count = 4;// Number of data points aggregated
+  string error = 5;          // Error message if any
+}
